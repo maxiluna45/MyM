@@ -2,8 +2,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-import CalendarScreen from './screens/CalendarScreen';
-import PhotosScreen from './screens/PhotosScreen';
+import CalendarScreen from './src/screens/CalendarScreen';
+import PhotosScreen from './src/screens/PhotosScreen';
 
 import './global.css';
 
@@ -38,7 +38,7 @@ export default function App() {
             fontSize: 12,
             fontWeight: '600',
           },
-          headerShown: true, // Mostrar header superior
+          headerShown: true,
         })}
       >
         <Tab.Screen 
