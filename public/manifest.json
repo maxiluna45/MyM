@@ -1,0 +1,22 @@
+{
+  "name": "M&M",
+  "short_name": "M&M",
+  "description": "Nuestra aplicación especial para guardar momentos juntos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#B2B0E8",
+  "theme_color": "#3B38A0",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/src/assets/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/src/assets/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

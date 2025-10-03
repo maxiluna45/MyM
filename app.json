@@ -1,37 +1,45 @@
 {
   "expo": {
-    "name": "MyM",
+    "name": "M&M - Nuestra App",
     "slug": "MyM",
     "version": "1.0.0",
-
     "web": {
       "favicon": "./src/assets/favicon.png"
     },
-
     "experiments": {
       "tsconfigPaths": true
     },
-
-    "plugins": [],
-
+    "plugins": [
+      "expo-dev-client"
+    ],
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
-
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./src/assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#B2B0E8"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tuapp.mym",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#B2B0E8"
+      },
+      "package": "com.tuapp.mym"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "113d29cb-5223-4266-99de-fabc5140e0cd"
       }
     }
   }
