@@ -16,6 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ExpoLocation from 'expo-location';
 import { Event, Location } from '../types';
+import { useCustomAlert } from '../hooks/useCustomAlert';
+import { openMaps } from '../utils/platform';
+import { requestWebLocationPermission, checkGeolocationSupport } from '../utils/webLocation';
 
 interface AddEventModalProps {
   visible: boolean;
@@ -37,6 +40,7 @@ export default function AddEventModal({
   const [photos, setPhotos] = useState<string[]>([]);
   const [eventType, setEventType] = useState<'past' | 'future'>('past');
   const [location, setLocation] = useState<Location | undefined>(undefined);
+  const { alert, prompt, AlertComponent, PromptComponent } = useCustomAlert();
 
   useEffect(() => {
     if (existingEvent) {
@@ -57,7 +61,9 @@ export default function AddEventModal({
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permisos necesarios', 'Necesitamos acceso a tus fotos para esta función');
+      alert('Permisos necesarios', 'Necesitamos acceso a tus fotos para esta función', [
+        { text: 'OK' },
+      ]);
       return false;
     }
     return true;
@@ -84,61 +90,93 @@ export default function AddEventModal({
   };
 
   const handleSelectLocation = async () => {
-    const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu ubicación para esta función.');
-      return;
-    }
-
     try {
-      const currentLocation = await ExpoLocation.getCurrentPositionAsync({});
-      const { latitude, longitude } = currentLocation.coords;
+      if (Platform.OS === 'web') {
+        // Verificar soporte de geolocalización
+        if (!checkGeolocationSupport()) {
+          alert('Error', 'Tu navegador no soporta geolocalización.', [{ text: 'OK' }]);
+          return;
+        }
 
-      // Obtener la dirección
-      const addressResults = await ExpoLocation.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
+        // Solicitar ubicación directamente (esto debería mostrar el popup de permisos)
+        console.log('Solicitando ubicación en web...');
+        const coords = await requestWebLocationPermission();
+        const { latitude, longitude } = coords;
 
-      if (addressResults.length > 0) {
-        const address = addressResults[0];
-        const addressString = [
-          address.street,
-          address.streetNumber,
-          address.city,
-          address.region,
-          address.country,
-        ]
-          .filter(Boolean)
-          .join(', ');
-
-        setLocation({
+        // Obtener la dirección usando expo-location
+        const addressResults = await ExpoLocation.reverseGeocodeAsync({
           latitude,
           longitude,
-          address: addressString,
-          name: address.name || addressString,
         });
+
+        if (addressResults.length > 0) {
+          const address = addressResults[0];
+          const addressString = [
+            address.street,
+            address.streetNumber,
+            address.city,
+            address.region,
+            address.country,
+          ]
+            .filter(Boolean)
+            .join(', ');
+
+          setLocation({
+            latitude,
+            longitude,
+            address: addressString,
+            name: address.name || addressString,
+          });
+        }
+      } else {
+        // Código para móvil (sin cambios)
+        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          alert('Permiso requerido', 'Necesitamos acceso a tu ubicación para esta función.', [
+            { text: 'OK' },
+          ]);
+          return;
+        }
+
+        const currentLocation = await ExpoLocation.getCurrentPositionAsync({});
+        const { latitude, longitude } = currentLocation.coords;
+
+        const addressResults = await ExpoLocation.reverseGeocodeAsync({
+          latitude,
+          longitude,
+        });
+
+        if (addressResults.length > 0) {
+          const address = addressResults[0];
+          const addressString = [
+            address.street,
+            address.streetNumber,
+            address.city,
+            address.region,
+            address.country,
+          ]
+            .filter(Boolean)
+            .join(', ');
+
+          setLocation({
+            latitude,
+            longitude,
+            address: addressString,
+            name: address.name || addressString,
+          });
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación');
+      console.error('Error obteniendo ubicación:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'No se pudo obtener la ubicación';
+      alert('Error', errorMessage, [{ text: 'OK' }]);
     }
   };
 
   const openInMaps = () => {
     if (!location) return;
-
-    const scheme = Platform.select({
-      ios: 'maps:',
-      android: 'geo:',
-    });
-    const url = Platform.select({
-      ios: `${scheme}?q=${location.latitude},${location.longitude}`,
-      android: `${scheme}${location.latitude},${location.longitude}`,
-    });
-
-    if (url) {
-      Linking.openURL(url);
-    }
+    openMaps(location.latitude, location.longitude, location.name);
   };
 
   const removeLocation = () => {
@@ -146,14 +184,14 @@ export default function AddEventModal({
   };
 
   const handleEditLocation = () => {
-    Alert.prompt(
+    prompt(
       'Editar ubicación',
       'Ingresa la dirección que querés buscar:',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Buscar',
-          onPress: async (address?: string) => {
+          onPress: async (address: string) => {
             if (address && address.trim()) {
               try {
                 const results = await ExpoLocation.geocodeAsync(address);
@@ -186,22 +224,24 @@ export default function AddEventModal({
                     });
                   }
                 } else {
-                  Alert.alert('Error', 'No se encontró la dirección. Intentá con otra.');
+                  alert('Error', 'No se encontró la dirección. Intentá con otra.', [
+                    { text: 'OK' },
+                  ]);
                 }
               } catch (error) {
-                Alert.alert('Error', 'No se pudo buscar la dirección');
+                alert('Error', 'No se pudo buscar la dirección', [{ text: 'OK' }]);
               }
             }
           },
         },
       ],
-      'plain-text'
+      'Ingresa una dirección...'
     );
   };
 
   const handleSave = () => {
     if (!title.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un título');
+      alert('Error', 'Por favor ingresa un título', [{ text: 'OK' }]);
       return;
     }
 
@@ -391,6 +431,8 @@ export default function AddEventModal({
           </View>
         </View>
       </View>
+      <AlertComponent />
+      <PromptComponent />
     </Modal>
   );
 }

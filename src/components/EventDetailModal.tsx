@@ -15,6 +15,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Event } from '../types';
+import { useCustomAlert } from '../hooks/useCustomAlert';
+import { openMaps } from '../utils/platform';
 
 interface EventDetailModalProps {
   visible: boolean;
@@ -36,11 +38,12 @@ export default function EventDetailModal({
   onConvertToMemory,
 }: EventDetailModalProps) {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const { alert, AlertComponent } = useCustomAlert();
 
   if (!event) return null;
 
   const handleConvertToMemory = () => {
-    Alert.alert('¡Se hizo realidad! 🎉', '¿Querés marcar este plan como un recuerdo?', [
+    alert('¡Se hizo realidad! 🎉', '¿Querés marcar este plan como un recuerdo?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: '¡Sí, se cumplió!',
@@ -55,7 +58,7 @@ export default function EventDetailModal({
   };
 
   const handleDeleteEvent = () => {
-    Alert.alert(
+    alert(
       'Eliminar evento',
       '¿Estás seguro de que querés eliminar este evento? Esta acción no se puede deshacer.',
       [
@@ -77,7 +80,9 @@ export default function EventDetailModal({
   const handleAddPhotos = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para agregar fotos.');
+      alert('Permiso requerido', 'Necesitamos acceso a tu galería para agregar fotos.', [
+        { text: 'OK' },
+      ]);
       return;
     }
 
@@ -95,7 +100,7 @@ export default function EventDetailModal({
   };
 
   const handleDeletePhoto = (photoIndex: number) => {
-    Alert.alert('Eliminar foto', '¿Querés eliminar esta foto del evento?', [
+    alert('Eliminar foto', '¿Querés eliminar esta foto del evento?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
@@ -115,20 +120,8 @@ export default function EventDetailModal({
 
   const openLocationInMaps = () => {
     if (!event.location) return;
-
     const { latitude, longitude } = event.location;
-    const scheme = Platform.select({
-      ios: 'maps:',
-      android: 'geo:',
-    });
-    const url = Platform.select({
-      ios: `${scheme}?q=${latitude},${longitude}`,
-      android: `${scheme}${latitude},${longitude}`,
-    });
-
-    if (url) {
-      Linking.openURL(url);
-    }
+    openMaps(latitude, longitude, event.location.name);
   };
 
   return (
@@ -296,6 +289,7 @@ export default function EventDetailModal({
           </ScrollView>
         </View>
       </View>
+      <AlertComponent />
     </Modal>
   );
 }
