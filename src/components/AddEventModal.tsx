@@ -9,10 +9,13 @@ import {
   Image,
   Alert,
   StyleSheet,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Event } from '../types';
+import * as ExpoLocation from 'expo-location';
+import { Event, Location } from '../types';
 
 interface AddEventModalProps {
   visible: boolean;
@@ -33,6 +36,7 @@ export default function AddEventModal({
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [eventType, setEventType] = useState<'past' | 'future'>('past');
+  const [location, setLocation] = useState<Location | undefined>(undefined);
 
   useEffect(() => {
     if (existingEvent) {
@@ -40,6 +44,7 @@ export default function AddEventModal({
       setDescription(existingEvent.description);
       setPhotos(existingEvent.photos);
       setEventType(existingEvent.type);
+      setLocation(existingEvent.location);
     } else {
       // Determinar si la fecha es pasada o futura
       const today = new Date();
@@ -78,6 +83,122 @@ export default function AddEventModal({
     setPhotos(photos.filter((_, i) => i !== index));
   };
 
+  const handleSelectLocation = async () => {
+    const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu ubicación para esta función.');
+      return;
+    }
+
+    try {
+      const currentLocation = await ExpoLocation.getCurrentPositionAsync({});
+      const { latitude, longitude } = currentLocation.coords;
+
+      // Obtener la dirección
+      const addressResults = await ExpoLocation.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (addressResults.length > 0) {
+        const address = addressResults[0];
+        const addressString = [
+          address.street,
+          address.streetNumber,
+          address.city,
+          address.region,
+          address.country,
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+        setLocation({
+          latitude,
+          longitude,
+          address: addressString,
+          name: address.name || addressString,
+        });
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo obtener la ubicación');
+    }
+  };
+
+  const openInMaps = () => {
+    if (!location) return;
+
+    const scheme = Platform.select({
+      ios: 'maps:',
+      android: 'geo:',
+    });
+    const url = Platform.select({
+      ios: `${scheme}?q=${location.latitude},${location.longitude}`,
+      android: `${scheme}${location.latitude},${location.longitude}`,
+    });
+
+    if (url) {
+      Linking.openURL(url);
+    }
+  };
+
+  const removeLocation = () => {
+    setLocation(undefined);
+  };
+
+  const handleEditLocation = () => {
+    Alert.prompt(
+      'Editar ubicación',
+      'Ingresa la dirección que querés buscar:',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Buscar',
+          onPress: async (address?: string) => {
+            if (address && address.trim()) {
+              try {
+                const results = await ExpoLocation.geocodeAsync(address);
+                if (results.length > 0) {
+                  const result = results[0];
+
+                  // Obtener la dirección formateada
+                  const addressResults = await ExpoLocation.reverseGeocodeAsync({
+                    latitude: result.latitude,
+                    longitude: result.longitude,
+                  });
+
+                  if (addressResults.length > 0) {
+                    const addr = addressResults[0];
+                    const addressString = [
+                      addr.street,
+                      addr.streetNumber,
+                      addr.city,
+                      addr.region,
+                      addr.country,
+                    ]
+                      .filter(Boolean)
+                      .join(', ');
+
+                    setLocation({
+                      latitude: result.latitude,
+                      longitude: result.longitude,
+                      address: addressString,
+                      name: addr.name || address,
+                    });
+                  }
+                } else {
+                  Alert.alert('Error', 'No se encontró la dirección. Intentá con otra.');
+                }
+              } catch (error) {
+                Alert.alert('Error', 'No se pudo buscar la dirección');
+              }
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
+  };
+
   const handleSave = () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Por favor ingresa un título');
@@ -90,12 +211,14 @@ export default function AddEventModal({
       description: description.trim(),
       photos,
       type: eventType,
+      location,
     });
 
     // Reset form
     setTitle('');
     setDescription('');
     setPhotos([]);
+    setLocation(undefined);
     onClose();
   };
 
@@ -103,6 +226,7 @@ export default function AddEventModal({
     setTitle('');
     setDescription('');
     setPhotos([]);
+    setLocation(undefined);
     onClose();
   };
 
@@ -212,6 +336,46 @@ export default function AddEventModal({
                     </View>
                   ))}
                 </ScrollView>
+              )}
+            </View>
+
+            {/* Ubicación */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Ubicación</Text>
+              {!location ? (
+                <TouchableOpacity style={styles.addLocationButton} onPress={handleSelectLocation}>
+                  <Ionicons name="location" size={24} color="#3B38A0" />
+                  <Text style={styles.addLocationText}>Agregar ubicación</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.locationCard}>
+                  <View style={styles.locationInfo}>
+                    <Ionicons name="location-sharp" size={20} color="#3B38A0" />
+                    <View style={styles.locationTextContainer}>
+                      <Text style={styles.locationName} numberOfLines={1}>
+                        {location.name || 'Ubicación seleccionada'}
+                      </Text>
+                      {location.address && (
+                        <Text style={styles.locationAddress} numberOfLines={2}>
+                          {location.address}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.locationActions}>
+                    <TouchableOpacity
+                      style={styles.locationActionButton}
+                      onPress={handleEditLocation}>
+                      <Ionicons name="pencil" size={20} color="#3B38A0" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.locationActionButton} onPress={openInMaps}>
+                      <Ionicons name="map" size={20} color="#3B38A0" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.locationActionButton} onPress={removeLocation}>
+                      <Ionicons name="trash" size={20} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
             </View>
           </ScrollView>
@@ -358,6 +522,60 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: '#fff',
     borderRadius: 12,
+  },
+  addLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#3B38A0',
+    borderStyle: 'dashed',
+    gap: 8,
+  },
+  addLocationText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3B38A0',
+  },
+  locationCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  locationTextContainer: {
+    flex: 1,
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  locationAddress: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  locationActionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   modalFooter: {
     flexDirection: 'row',

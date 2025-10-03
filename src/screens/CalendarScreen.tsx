@@ -16,6 +16,7 @@ import { Event } from '../types';
 import { useEvents } from '../context/EventsContext';
 import AddEventModal from '../components/AddEventModal';
 import EventDetailModal from '../components/EventDetailModal';
+import FloatingHearts from '../components/FloatingHearts';
 
 export default function CalendarScreen() {
   const { events, loadEvents, addEvent, deleteEvent, updateEvent } = useEvents();
@@ -24,6 +25,7 @@ export default function CalendarScreen() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showHearts, setShowHearts] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -81,6 +83,11 @@ export default function CalendarScreen() {
 
   const handleSaveEvent = async (eventData: Omit<Event, 'id' | 'createdAt'>) => {
     await addEvent(eventData);
+    // Mostrar animación de corazones
+    setShowHearts(true);
+    setTimeout(() => {
+      setShowHearts(false);
+    }, 6000);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
@@ -93,6 +100,15 @@ export default function CalendarScreen() {
     if (selectedEvent && selectedEvent.id === eventId) {
       setSelectedEvent({ ...selectedEvent, photos });
     }
+  };
+
+  const handleConvertToMemory = async (eventId: string) => {
+    await updateEvent(eventId, { type: 'past' });
+    // Mostrar animación de corazones
+    setShowHearts(true);
+    setTimeout(() => {
+      setShowHearts(false);
+    }, 3000);
   };
 
   const handleAddButtonPress = () => {
@@ -251,7 +267,11 @@ export default function CalendarScreen() {
         event={selectedEvent}
         onDelete={handleDeleteEvent}
         onUpdatePhotos={handleUpdatePhotos}
+        onConvertToMemory={handleConvertToMemory}
       />
+
+      {/* Animación de corazones */}
+      {showHearts && <FloatingHearts />}
 
       <StatusBar style="auto" />
     </LinearGradient>

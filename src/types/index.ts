@@ -1,3 +1,10 @@
+export interface Location {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  name?: string;
+}
+
 export interface Event {
   id: string;
   date: string; // YYYY-MM-DD format
@@ -7,6 +14,7 @@ export interface Event {
   type: 'past' | 'future'; // Momento pasado o plan futuro
   createdAt: number;
   isRecurring?: boolean; // Si el evento se repite cada año
+  location?: Location; // Ubicación del evento
 }
 
 export interface MarkedDate {

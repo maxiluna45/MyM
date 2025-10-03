@@ -9,6 +9,8 @@ import {
   Dimensions,
   StyleSheet,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,6 +22,7 @@ interface EventDetailModalProps {
   event: Event | null;
   onDelete?: (eventId: string) => void;
   onUpdatePhotos?: (eventId: string, photos: string[]) => void;
+  onConvertToMemory?: (eventId: string) => void;
 }
 
 const { width } = Dimensions.get('window');
@@ -30,10 +33,26 @@ export default function EventDetailModal({
   event,
   onDelete,
   onUpdatePhotos,
+  onConvertToMemory,
 }: EventDetailModalProps) {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   if (!event) return null;
+
+  const handleConvertToMemory = () => {
+    Alert.alert('¡Se hizo realidad! 🎉', '¿Querés marcar este plan como un recuerdo?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: '¡Sí, se cumplió!',
+        onPress: () => {
+          if (onConvertToMemory) {
+            onConvertToMemory(event.id);
+            onClose();
+          }
+        },
+      },
+    ]);
+  };
 
   const handleDeleteEvent = () => {
     Alert.alert(
@@ -94,6 +113,24 @@ export default function EventDetailModal({
     ]);
   };
 
+  const openLocationInMaps = () => {
+    if (!event.location) return;
+
+    const { latitude, longitude } = event.location;
+    const scheme = Platform.select({
+      ios: 'maps:',
+      android: 'geo:',
+    });
+    const url = Platform.select({
+      ios: `${scheme}?q=${latitude},${longitude}`,
+      android: `${scheme}${latitude},${longitude}`,
+    });
+
+    if (url) {
+      Linking.openURL(url);
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.modalOverlay}>
@@ -115,6 +152,15 @@ export default function EventDetailModal({
                   {event.type === 'past' ? 'Recuerdo' : 'Plan'}
                 </Text>
               </View>
+              {/* Badge de conversión para planes */}
+              {onConvertToMemory && event.type === 'future' && (
+                <TouchableOpacity
+                  style={styles.convertBadge}
+                  onPress={handleConvertToMemory}
+                  activeOpacity={0.7}>
+                  <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={28} color="#6b7280" />
@@ -194,6 +240,29 @@ export default function EventDetailModal({
                 </View>
               )}
 
+              {/* Ubicación */}
+              {event.location && (
+                <View style={styles.locationContainer}>
+                  <Text style={styles.locationLabel}>Ubicación</Text>
+                  <TouchableOpacity style={styles.locationCard} onPress={openLocationInMaps}>
+                    <View style={styles.locationInfo}>
+                      <Ionicons name="location-sharp" size={24} color="#3B38A0" />
+                      <View style={styles.locationTextContainer}>
+                        <Text style={styles.locationName} numberOfLines={1}>
+                          {event.location.name || 'Ubicación del evento'}
+                        </Text>
+                        {event.location.address && (
+                          <Text style={styles.locationAddress} numberOfLines={2}>
+                            {event.location.address}
+                          </Text>
+                        )}
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Botones de acción */}
               {(onUpdatePhotos || onDelete) && (
                 <View style={styles.actionsSection}>
@@ -254,6 +323,9 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   typeBadge: {
     flexDirection: 'row',
@@ -274,6 +346,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  convertBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#d1fae5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#10b981',
   },
   scrollContent: {
     flexGrow: 1,
@@ -359,6 +441,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#374151',
     lineHeight: 24,
+  },
+  locationContainer: {
+    marginTop: 16,
+  },
+  locationLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  locationCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  locationTextContainer: {
+    flex: 1,
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  locationAddress: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
   },
   deletePhotoButton: {
     position: 'absolute',
